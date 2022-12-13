@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: sqldropper-db-pv-volume
+  namespace: sqldropper 
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/data"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sqldropper-db-pv-claim
+  namespace: sqldropper  
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sqldropper-db
+  namespace: sqldropper  
+spec:
+  ports:
+  - port: 3306
+  selector:
+    app: sqldropper-db
+  clusterIP: None
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sqldropper-db
+  namespace: sqldropper  
+spec:
+  selector:
+    matchLabels:
+      app: sqldropper-db
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: sqldropper-db
+    spec:
+      containers:
+      - image: mysql:5.6
+        name: mysql
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: sqldropper-secret
+              key: dbpassword
+        ports:
+        - containerPort: 3306
+          name: mysql
+        volumeMounts:
+        - name: sqldropper-db-persistent-storage
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: sqldropper-db-persistent-storage
+        persistentVolumeClaim:
+          claimName: sqldropper-db-pv-claim      
+
